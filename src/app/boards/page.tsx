@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { signOut } from "next-auth/react";
 
 type Board = {
   id: string;
@@ -60,7 +61,10 @@ export default function BoardsPage() {
 
   return (
     <div style={{ maxWidth: 600, margin: "40px auto", padding: 16 }}>
-      <h1>My Boards</h1>
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+        <h1>My Boards</h1>
+        <button onClick={() => signOut({ callbackUrl: "/login" })}>Log out</button>
+      </div>
 
       <form onSubmit={handleCreate} style={{ display: "flex", gap: 8, marginBottom: 24 }}>
         <input
