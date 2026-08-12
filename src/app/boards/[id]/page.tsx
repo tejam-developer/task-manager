@@ -24,6 +24,7 @@ type Card = {
   id: string;
   title: string;
   position: number;
+  dueDate: string | null;
 };
 
 type List = {
@@ -50,6 +51,8 @@ function SortableCard({ card, onDelete }: { card: Card; onDelete: (id: string) =
     opacity: isDragging ? 0.4 : 1,
   };
 
+  const isOverdue = card.dueDate && new Date(card.dueDate) < new Date();
+
   return (
     <li
       ref={setNodeRef}
@@ -59,23 +62,28 @@ function SortableCard({ card, onDelete }: { card: Card; onDelete: (id: string) =
         padding: 8,
         marginBottom: 8,
         borderRadius: 4,
-        display: "flex",
-        justifyContent: "space-between",
         cursor: "grab",
       }}
       {...attributes}
       {...listeners}
     >
-      <span>{card.title}</span>
-      <button
-        onClick={(e) => {
-          e.stopPropagation();
-          onDelete(card.id);
-        }}
-        onPointerDown={(e) => e.stopPropagation()}
-      >
-        ✕
-      </button>
+      <div style={{ display: "flex", justifyContent: "space-between" }}>
+        <span>{card.title}</span>
+        <button
+          onClick={(e) => {
+            e.stopPropagation();
+            onDelete(card.id);
+          }}
+          onPointerDown={(e) => e.stopPropagation()}
+        >
+          ✕
+        </button>
+      </div>
+      {card.dueDate && (
+        <div style={{ fontSize: 12, color: isOverdue ? "red" : "#666", marginTop: 4 }}>
+          Due: {new Date(card.dueDate).toLocaleDateString()}
+        </div>
+      )}
     </li>
   );
 }
@@ -86,15 +94,19 @@ function DroppableList({
   onDeleteList,
   newCardTitle,
   onCardTitleChange,
+  newCardDueDate,
+  onCardDueDateChange,
   onCreateCard,
-}: {
+ }: {
   list: List;
   children: React.ReactNode;
   onDeleteList: (id: string) => void;
   newCardTitle: string;
   onCardTitleChange: (v: string) => void;
+  newCardDueDate: string;
+  onCardDueDateChange: (v: string) => void;
   onCreateCard: () => void;
-}) {
+ }) {
   const { setNodeRef } = useDroppable({ id: list.id });
 
   return (
@@ -111,15 +123,23 @@ function DroppableList({
         {children}
       </ul>
 
-      <div style={{ display: "flex", gap: 4 }}>
+     <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
         <input
-          type="text"
-          value={newCardTitle}
-          onChange={(e) => onCardTitleChange(e.target.value)}
-          placeholder="New card"
-          style={{ flex: 1, padding: 6 }}
+            type="text"
+            value={newCardTitle}
+            onChange={(e) => onCardTitleChange(e.target.value)}
+            placeholder="New card"
+            style={{ padding: 6 }}
         />
-        <button onClick={onCreateCard}>+</button>
+        <div style={{ display: "flex", gap: 4 }}>
+            <input
+            type="date"
+            value={newCardDueDate}
+            onChange={(e) => onCardDueDateChange(e.target.value)}
+            style={{ flex: 1, padding: 6 }}
+            />
+            <button onClick={onCreateCard}>+</button>
+        </div>
       </div>
     </div>
   );
@@ -134,6 +154,7 @@ export default function BoardPage({ params }: { params: Promise<{ id: string }> 
   const [newListTitle, setNewListTitle] = useState("");
   const [newCardTitles, setNewCardTitles] = useState<Record<string, string>>({});
   const [activeCard, setActiveCard] = useState<Card | null>(null);
+  const [newCardDueDates, setNewCardDueDates] = useState<Record<string, string>>({});
 
   const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 5 } }));
 
@@ -175,21 +196,25 @@ export default function BoardPage({ params }: { params: Promise<{ id: string }> 
     else setError("Failed to delete list");
   }
 
-  async function handleCreateCard(listId: string) {
+    async function handleCreateCard(listId: string) {
     const title = newCardTitles[listId]?.trim();
     if (!title) return;
+    const dueDate = newCardDueDates[listId] || null;
+
     const res = await fetch("/api/cards", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ title, listId }),
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ title, listId, dueDate }),
     });
+
     if (res.ok) {
-      setNewCardTitles((prev) => ({ ...prev, [listId]: "" }));
-      loadBoard();
+        setNewCardTitles((prev) => ({ ...prev, [listId]: "" }));
+        setNewCardDueDates((prev) => ({ ...prev, [listId]: "" }));
+        loadBoard();
     } else {
-      setError("Failed to create card");
+        setError("Failed to create card");
     }
-  }
+    }
 
   async function handleDeleteCard(cardId: string) {
     const res = await fetch(`/api/cards/${cardId}`, { method: "DELETE" });
@@ -311,13 +336,15 @@ export default function BoardPage({ params }: { params: Promise<{ id: string }> 
       >
         <div style={{ display: "flex", gap: 16, overflowX: "auto" }}>
           {board.lists.map((list) => (
-            <DroppableList
-              key={list.id}
-              list={list}
-              onDeleteList={handleDeleteList}
-              newCardTitle={newCardTitles[list.id] || ""}
-              onCardTitleChange={(v) => setNewCardTitles((prev) => ({ ...prev, [list.id]: v }))}
-              onCreateCard={() => handleCreateCard(list.id)}
+          <DroppableList
+                key={list.id}
+                list={list}
+                onDeleteList={handleDeleteList}
+                newCardTitle={newCardTitles[list.id] || ""}
+                onCardTitleChange={(v) => setNewCardTitles((prev) => ({ ...prev, [list.id]: v }))}
+                newCardDueDate={newCardDueDates[list.id] || ""}
+                onCardDueDateChange={(v) => setNewCardDueDates((prev) => ({ ...prev, [list.id]: v }))}
+                onCreateCard={() => handleCreateCard(list.id)}
             >
               <SortableContext items={list.cards.map((c) => c.id)} strategy={verticalListSortingStrategy}>
                 {list.cards.map((card) => (

@@ -13,6 +13,7 @@ export async function POST(request: Request) {
   const body = await request.json();
   const title = body.title?.trim();
   const listId = body.listId;
+  const dueDate = body.dueDate ? new Date(body.dueDate) : null;
 
   if (!title || !listId) {
     return NextResponse.json({ error: "Title and listId are required" }, { status: 400 });
@@ -34,7 +35,7 @@ export async function POST(request: Request) {
   const position = lastCard ? lastCard.position + 1 : 0;
 
   const card = await prisma.card.create({
-    data: { title, listId, position },
+   data: { title, listId, position, dueDate },
   });
 
   return NextResponse.json(card, { status: 201 });
