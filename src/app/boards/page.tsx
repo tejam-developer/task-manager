@@ -91,7 +91,9 @@ export default function BoardsPage() {
                 borderBottom: "1px solid #eee",
               }}
             >
-              <span>{board.title}</span>
+            <a href={`/boards/${board.id}`} style={{ textDecoration: "underline", cursor: "pointer" }}>
+               {board.title}
+            </a>
               <button onClick={() => handleDelete(board.id)}>Delete</button>
             </li>
           ))}
